@@ -17,6 +17,7 @@ final _orgProvider = NotifierProvider<_Org, String>(_Org.new);
 /// until the test completes them.
 class _FakeDmRepository implements DmRepository {
   final held = <String, Completer<List<DmConversation>>>{};
+  final requested = <String>[];
 
   void hold(String orgId, int page) =>
       held['$orgId/$page'] = Completer<List<DmConversation>>();
@@ -28,6 +29,7 @@ class _FakeDmRepository implements DmRepository {
     bool recentDm = false,
     String? search,
   }) {
+    requested.add('$orgId/$page');
     final completer = held['$orgId/$page'];
     if (completer != null) return completer.future;
     return Future.value(_fullPage(orgId, page));
@@ -80,6 +82,27 @@ void main() {
 
     expect(
       listedIds(),
+      [
+        ..._fullPage('org-a', 1),
+        ..._fullPage('org-a', 2),
+      ].map((c) => c.channelId),
+    );
+  });
+
+  test('two overlapping loadMore calls append the page once', () async {
+    repository.hold('org-a', 2);
+    final notifier = container.read(dmListProvider.notifier);
+
+    final first = notifier.loadMore();
+    final second = notifier.loadMore();
+    repository.held['org-a/2']!.complete(_fullPage('org-a', 2));
+    await Future.wait([first, second]);
+
+    expect(repository.requested.where((key) => key == 'org-a/2').length, 1);
+    final ids = listedIds();
+    expect(ids.toSet().length, ids.length);
+    expect(
+      ids,
       [
         ..._fullPage('org-a', 1),
         ..._fullPage('org-a', 2),
