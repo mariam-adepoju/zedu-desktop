@@ -36,6 +36,11 @@ class ChannelMessageList extends ConsumerWidget {
               m['created_at']?.toString() ?? '',
             )?.toLocal(),
             status: m['status']?.toString(),
+            media:
+                (m['media'] as List?)
+                    ?.whereType<Map<String, dynamic>>()
+                    .toList() ??
+                const [],
           ),
         )
         .toList();
@@ -150,6 +155,8 @@ class ChannelMessageTile extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (message.media.isNotEmpty)
+                  _ChannelAttachments(media: message.media),
                 if (status != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -188,6 +195,128 @@ class ChannelMessageTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The attachments of a channel message, drawn as the DM bubble draws them.
+class _ChannelAttachments extends StatelessWidget {
+  const _ChannelAttachments({required this.media});
+
+  final List<Map<String, dynamic>> media;
+
+  static const _imageTypes = {'png', 'jpg', 'jpeg', 'gif', 'webp'};
+
+  Future<void> _openLink(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  void _openImage(BuildContext context, String imageUrl, String fileName) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) =>
+            ImageAttachmentViewer(imageUrl: imageUrl, fileName: fileName),
+      ),
+    );
+  }
+
+  Widget _fileCard(
+    BuildContext context,
+    String fileName,
+    String fileLink,
+    bool isImage,
+  ) {
+    final colors = context.colors;
+    return GestureDetector(
+      onTap: fileLink.isNotEmpty ? () => _openLink(fileLink) : null,
+      child: Container(
+        width: 120,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: colors.onPrimary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colors.divider),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isImage ? Icons.image_rounded : Icons.insert_drive_file_rounded,
+              color: colors.textPrimary,
+              size: 28,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              fileName,
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: media.map((item) {
+          final fileName = (item['file_name'] ?? 'Attachment').toString();
+          final fileLink = (item['file_link'] ?? '').toString();
+          final isImage = _imageTypes.contains(
+            (item['file_type'] ?? '').toString().toLowerCase(),
+          );
+
+          if (isImage && fileLink.isNotEmpty) {
+            final isNetwork = fileLink.startsWith('http');
+
+            return GestureDetector(
+              onTap: () => _openImage(context, fileLink, fileName),
+              child: Container(
+                width: 250,
+                height: 200,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: context.colors.divider),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: isNetwork
+                      ? Image.network(
+                          fileLink,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, _, _) =>
+                              _fileCard(context, fileName, fileLink, isImage),
+                        )
+                      : Image.asset(
+                          fileLink,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, _, _) =>
+                              _fileCard(context, fileName, fileLink, isImage),
+                        ),
+                ),
+              ),
+            );
+          }
+
+          return _fileCard(context, fileName, fileLink, isImage);
+        }).toList(),
       ),
     );
   }

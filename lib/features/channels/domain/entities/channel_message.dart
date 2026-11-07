@@ -8,6 +8,10 @@ class ChannelMessage {
   final DateTime? createdAt;
   final String? status;
 
+  /// Files, images and voice notes sent with the message, as the server
+  /// returns them (`file_name`, `file_link`, `file_type`).
+  final List<Map<String, dynamic>> media;
+
   const ChannelMessage({
     this.id,
     required this.senderName,
@@ -15,6 +19,7 @@ class ChannelMessage {
     this.avatarUrl,
     this.createdAt,
     this.status,
+    this.media = const [],
   });
 
   factory ChannelMessage.fromJson(Map<String, dynamic> json) {
@@ -45,6 +50,10 @@ class ChannelMessage {
         json['created_at']?.toString() ?? '',
       )?.toLocal(),
       status: json['status']?.toString(),
+      media: (json['media'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .toList() ??
+          const [],
     );
   }
 

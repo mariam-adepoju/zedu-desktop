@@ -16,6 +16,32 @@ void main() {
     expect(message.createdAt, DateTime.utc(2026, 10, 21, 5, 14, 46).toLocal());
   });
 
+  test('ChannelMessage.fromJson keeps media attachments', () {
+    final message = ChannelMessage.fromJson({
+      'message': '',
+      'media': [
+        {
+          'file_name': 'photo.png',
+          'file_link': 'https://cdn.zedu.chat/photo.png',
+          'file_type': 'png',
+        },
+        {
+          'file_name': 'notes.pdf',
+          'file_link': 'https://cdn.zedu.chat/notes.pdf',
+          'file_type': 'pdf',
+        },
+      ],
+    });
+
+    expect(message.media, hasLength(2));
+    expect(message.media.first['file_name'], 'photo.png');
+    expect(message.media.last['file_type'], 'pdf');
+  });
+
+  test('ChannelMessage.fromJson defaults media to empty', () {
+    expect(ChannelMessage.fromJson({'message': 'hi'}).media, isEmpty);
+  });
+
   test('ChannelMessage.fromJson falls back and strips HTML', () {
     final message = ChannelMessage.fromJson({
       'full_name': ' ',
